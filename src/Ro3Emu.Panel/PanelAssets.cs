@@ -37,6 +37,7 @@ internal sealed class PanelAssets
         ".css" => "text/css; charset=utf-8",
         ".js" => "text/javascript; charset=utf-8",
         ".svg" => "image/svg+xml",
+        ".jpg" => "image/jpeg",
         ".woff2" => "font/woff2",
         ".json" => "application/json; charset=utf-8",
         _ => "text/plain; charset=utf-8",

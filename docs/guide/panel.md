@@ -127,6 +127,8 @@ Each tool is a page of the admin area's sidebar; each change is written to the a
   needs no GM rights. The page lists the admin's past commands (from the audit log).
 - **News editor.** Create, edit, delete and pin news (category news, event, maintenance or patch, and a publish time;
   a time in the future keeps an item hidden until then). The public News and Home pages show pinned items first.
+  The launcher reads the same first five posts when it opens. The panel serves them at `/launcher/news.json`.
+  If a reverse proxy serves launcher downloads, route that exact path to the panel.
 - **Broadcasts.** A one-line notice on the screen of everyone in the game: the GM marquee (`BROADCAST_NOTIFY` 83270,
   the message GM replies use). It can repeat every few minutes, up to 100 more times; repeats are kept in the
   server's memory (a restart ends them) and can be cancelled.

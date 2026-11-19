@@ -134,16 +134,24 @@ public sealed class PanelToolsTests : IAsyncLifetime
 
         var shown = (await visitor.GetJsonAsync("/api/news")).GetProperty("news").EnumerateArray().Select(n => n.GetProperty("title").GetString()).ToList();
         Assert.Equal(["Now"], shown);
+        var feed = Assert.Single((await visitor.GetJsonAsync("/launcher/news.json")).GetProperty("items").EnumerateArray());
+        Assert.Equal("Now", feed.GetProperty("title").GetString());
+        Assert.Equal("Live", feed.GetProperty("text").GetString());
+        Assert.Equal("event", feed.GetProperty("tag").GetString());
         Assert.Equal(2, (await admin.GetJsonAsync("/api/admin/news")).GetProperty("news").GetArrayLength());
 
         await OkAsync(admin.PostAsync("/api/admin/news", new { id = future, title = "Later", tag = "patch", published = DateTimeOffset.UtcNow.AddMinutes(-1), pinned = true }));
         var top = (await visitor.GetJsonAsync("/api/news")).GetProperty("news")[0];
         Assert.Equal("Later", top.GetProperty("title").GetString());
         Assert.True(top.GetProperty("pinned").GetBoolean());
+        var launcherItems = (await visitor.GetJsonAsync("/launcher/news.json")).GetProperty("items");
+        Assert.Equal(["Later", "Now"], launcherItems.EnumerateArray().Select(n => n.GetProperty("title").GetString()));
 
         await OkAsync(admin.PostAsync($"/api/admin/news/{now}/delete", new { }));
         Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync($"/api/admin/news/{now}/delete", new { })).StatusCode);
         Assert.Single((await visitor.GetJsonAsync("/api/news")).GetProperty("news").EnumerateArray());
+        Assert.Equal("Later", Assert.Single((await visitor.GetJsonAsync("/launcher/news.json")).GetProperty("items").EnumerateArray())
+            .GetProperty("title").GetString());
         Assert.Equal(["news-delete", "news-save", "news-save", "news-save"], await AuditActionsAsync(admin));
     }
 

@@ -1,0 +1,167 @@
+/* Midgard Chronicles: leaf greens, warm paper and the original three action colours. */
+:root {
+  --display: Georgia, "Times New Roman", serif;
+  --body: "Segoe UI", system-ui, sans-serif;
+  --bar: 64px;
+  --t-md: 15px;
+  --t-sm: 14px;
+  --r3: 10px;
+}
+:root[data-palette="light"] {
+  --ink: #263728;
+  --ink-2: #394c37;
+  --muted: #536349;
+  --blue-ink: #335e42;
+  --amber: #d9e8a2;
+  --amber-hover: #cbdc8a;
+  --on-amber: #25391e;
+  --surface: #fffef9;
+  --surface-sub: #f3f6e9;
+  --glass: #fafbf0;
+  --foot-bg: #e3ebcc;
+  --page-bg: #e5efcf;
+  --sky: linear-gradient(156deg, #e0edbf, #f7f8e9 55%, #e4eecd);
+  --hover: #edf2e2;
+}
+:root[data-palette="dark"] {
+  --page-bg: #18241f;
+  --sky: linear-gradient(155deg, #172b21, #19221d);
+  --surface: #243128;
+  --surface-sub: #29392d;
+  --hover: #324438;
+  --glass: #1c2a21;
+  --foot-bg: #1c2a21;
+  --ink: #f2f2dd;
+  --ink-2: #e2e8d3;
+  --muted: #c1cbb7;
+  --blue-ink: #b9d79e;
+}
+.top {border-top: 3px solid #7d9e50;}
+.brand {font-variant: small-caps; letter-spacing: .025em;}
+.brand svg {font-size: 28px;}
+.card-head {border-top: 2px solid #97af73; border-radius: var(--r3) var(--r3) 0 0;}
+.card-head h2 {font: 600 1.15rem/1.25 var(--display);}
+.foot {border-top: 2px solid #91ab6f;}
+/* The public homepage follows the original illustrated community portal. */
+body:has(.chronicle-home) {
+  background: radial-gradient(ellipse at 50% 12rem, var(--surface) 14%, transparent 67%), var(--page-bg);
+}
+body:has(.chronicle-home) .top {display: none;}
+.view:has(.chronicle-home) {max-width: 1152px; padding-top: 0;}
+.chronicle-home {--rail-paper: #eff4df; --rule: #b6c69a; --mast-ink: #373d27;}
+:root[data-palette="dark"] .chronicle-home {--rail-paper: #29382c; --rule: #53694c;}
+.home-utility {
+  display: flex; align-items: center; justify-content: flex-end; gap: 1rem; min-height: 32px;
+  padding: 0 1rem; background: #405e38; color: #f5f9e4; font-size: .82rem;
+}
+.home-utility a:hover, .home-nav a:hover {text-decoration: underline;}
+.home-utility button {display: inline-grid; place-items: center; min-width: 32px; height: 32px;}
+.realm-online::before {content: ''; display: inline-block; width: .52rem; height: .52rem; margin-right: .42rem; border-radius: 50%; background: #c9eda1;}
+.chronicle-mast {
+  position: relative; isolation: isolate; display: grid; align-items: center; justify-items: end;
+  min-height: clamp(278px, 25vw, 340px); overflow: hidden; background: #f7f4e6;
+}
+.chronicle-mast::before {
+  content: ''; position: absolute; z-index: -2; inset: 0; transform: scaleX(-1);
+  background: url("/midgard-spring.jpg") center 26% / cover no-repeat;
+}
+.chronicle-mast::after {
+  content: ''; position: absolute; z-index: -1; inset: 0;
+  background: linear-gradient(90deg, transparent 21%, #fbf8e56b 42%, #fbf8e5e8 59%, #fbf8e5bd 91%, #fbf8e58c);
+}
+.mast-copy {width: 63%; text-align: center; padding: 1.45rem 1rem; color: var(--mast-ink);}
+.mast-copy h1 {margin: .2em 0 .4em; font: 500 clamp(2.5rem, 4.2vw, 4.15rem)/.99 var(--display); font-variant: small-caps; letter-spacing: -.035em;}
+.mast-tagline {margin: -.6rem auto .9rem; font-size: .95rem;}
+.home-shortcuts {display: flex; gap: clamp(.8rem,3.1vw,2.6rem); justify-content: center;}
+.home-shortcut {display: grid; justify-items: center; gap: .35rem; min-width: 4.8rem; font: bold .96rem/1.2 var(--display);}
+.shortcut-disc {
+  display: grid; place-items: center; width: 51px; height: 51px; border-radius: 50%; color: white;
+  background: linear-gradient(150deg, var(--disc-light), var(--disc)); border: 2px solid #ffffffe0;
+  outline: 1px solid var(--disc); box-shadow: 0 3px 8px #35432c28, inset 0 1px 2px #ffffff8a;
+}
+.shortcut-disc .i {width: 23px; height: 23px;}
+.home-shortcut:hover .shortcut-disc {box-shadow: 0 0 0 4px #fbf9e8, 0 2px 8px #423b2a45;}
+.home-shortcut.red {--disc: #8b4036; --disc-light: #c76f57;}
+.home-shortcut.green {--disc: #4a7134; --disc-light: #88aa56;}
+.home-shortcut.blue {--disc: #405e83; --disc-light: #7699bb;}
+.home-nav {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch;
+  background: linear-gradient(#85a966, #5c8147); color: white;
+  border-block: 1px solid #547843; box-shadow: inset 0 1px #dceabc;
+}
+.home-nav a {padding: .75rem clamp(.6rem, 1.7vw, 1.65rem); font: 600 1.06rem/1.12 var(--display); text-shadow: 0 1px 2px #33482d;}
+.home-nav a[aria-current] {background: #41663a8a;}
+.home-paper {
+  display: grid; grid-template-columns: minmax(168px, .9fr) minmax(0,2.06fr) minmax(0,1.43fr);
+  align-items: start; background: var(--surface); border: 1px solid var(--rule); border-top: 0;
+  box-shadow: 0 12px 32px #374a2610;
+}
+.player-rail, .paper-center, .world-column {min-width: 0; padding: clamp(14px,1.65vw,24px);}
+.player-rail {background: var(--rail-paper); align-self: stretch; border-right: 1px solid var(--rule);}
+.world-column {padding-left: 0;}
+.site-section + .site-section {margin-top: 1.5rem;}
+.site-heading {
+  display: flex; align-items: center; gap: .4em; padding: .42rem .65rem; margin: 0 0 .85rem;
+  background: #e3edcb; color: #39472e; border-block: 1px solid #c4d3ac;
+  font: 500 small-caps 1.25rem/1.15 var(--display);
+}
+.site-heading .i {width: 1.05em; height: 1.05em;}
+.player-rail .site-heading {background: transparent; border: none; border-bottom: 1px solid var(--rule); padding: 0 0 .46rem;}
+:root[data-palette="dark"] .player-rail .site-heading {color: var(--ink);}
+.player-rail .field {margin-bottom: .6rem;}
+.player-rail label {font: 600 .85rem/1.4 var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-2);}
+.player-rail .input {width: 100%; min-width: 0; background: var(--surface); border-color: var(--rule);}
+.player-rail .btn.primary, .site-button {background: #496e3e; color: white; border: 1px solid #395c31;}
+.site-button {display: block; text-align: center; padding: .55rem; border-radius: var(--r1);}
+.site-account > * {margin-bottom: .5rem;}
+.rail-link, .archive-link, .story-link {display: inline-block; color: var(--blue-ink); text-decoration: underline; text-underline-offset: 3px;}
+.rail-link {display: block; margin-top: .65rem; font-size: .89rem;}
+.rail-search > div {display: flex; gap: .25rem; margin-top: .25rem;}
+.rail-search button {display: grid; place-items: center; border-radius: 4px; padding: .5rem; background: #4a683d; color: white;}
+.home-characters li, .home-leaders li {display: flex; align-items: baseline; gap: .6rem; padding: .4rem 0; border-bottom: 1px solid var(--line);}
+.home-characters a,.home-leaders a {overflow-wrap: anywhere;}
+.home-characters small,.home-leaders small {white-space: nowrap; margin-left: auto;}
+.chronicle-story {padding: .15rem .2rem 1rem; border-bottom: 1px solid var(--line);}
+.chronicle-story + .chronicle-story {margin-top: .8rem;}
+.chronicle-story h3 {font: 500 clamp(1.55rem,2.6vw,2.1rem)/1.12 var(--display); color: var(--ink); text-wrap: balance;}
+.chronicle-story p, .leaders-empty {font-size: 1rem; line-height: 1.56; margin: .65rem 0; color: var(--ink-2);}
+.chronicle-story small,.story-meta,.home-leaders small {color: var(--muted);}
+.story-meta {display: flex; gap: .8rem; margin-bottom: .4rem; font-size: .82rem;}
+.news-excerpt {display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; white-space: pre-line;}
+.archive-link {margin-top: .65rem; font-size: .9rem;}
+.event-section .site-heading {color: #fff9ed; background: #9d4c40; border-color: #8d453a;}
+.event-cover {
+  display: flex; flex-direction: column; justify-content: flex-end; padding: .9rem; aspect-ratio: 1.55;
+  border: 1px solid #b6ab91; border-radius: 5px; overflow: hidden; color: white;
+  background: linear-gradient(0deg,#1d3027ed, transparent 54%), url("/midgard-events.jpg") center / cover;
+}
+.event-cover span {font: 600 1.34rem/1.2 var(--display); text-shadow: 0 1px 2px #14251b;}
+.event-cover small {font-size: .85rem;}
+.glance-section .site-heading {background: #655b45; color: white; border-color: #605741;}
+.glance-section .facts {margin: 0; grid-template-columns: 1fr auto;}
+.glance-section dd {text-align: right;}
+.guide-next {margin: .85rem 0;}
+@media (max-width: 830px) and (min-width: 651px) {
+  .home-paper {grid-template-columns: 170px minmax(0,1fr);}
+  .player-rail {grid-row: 1 / 3;}
+  .world-column {grid-column: 2; padding: 0 16px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: .8rem;}
+  .world-column .site-section {margin: 0;}
+}
+@media (max-width: 650px) {
+  .view:has(.chronicle-home) {padding-inline: 0;}
+  .home-utility {justify-content: center;}
+  .chronicle-mast {min-height: 266px; align-items: end;}
+  .chronicle-mast::before {background-position: center 12%;}
+  .chronicle-mast::after {background: linear-gradient(0deg,#fbf8e5f5 0%,#fbf8e5e8 36%,#fbf8e53b 65%,transparent);}
+  .mast-copy {width: 100%; padding: 6.7rem .6rem .8rem;}
+  .mast-copy h1 {font-size: clamp(2.45rem,9vw,3.35rem);}
+  .shortcut-disc {width: 36px; height: 36px;}
+  .shortcut-disc .i {width: 19px; height: 19px;}
+  .home-shortcut {font-size: .88rem;}
+  .home-nav a {padding: .62rem .68rem; font-size: .97rem;}
+  .home-paper {grid-template-columns: 1fr;}
+  .paper-center,.world-column,.player-rail {padding: 1rem;}
+  .paper-center {grid-row: 1;}
+  .player-rail {border: none; border-block: 1px solid var(--rule);}
+  .world-column {padding-bottom: 1.5rem;}
+}

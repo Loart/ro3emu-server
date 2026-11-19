@@ -18,6 +18,8 @@ public sealed partial class PanelSite
     internal sealed record Credentials(string? Account, string? Password);
     internal sealed record PasswordChange(string? Current, string? Next);
 
+    private const string LauncherNewsPath = "/launcher/news.json";
+
     private IEnumerable<Route> PublicRoutes() =>
     [
         Get("/api/session", Access.Public, SessionAsync),
@@ -26,6 +28,7 @@ public sealed partial class PanelSite
         Post("/api/register", Access.Public, RegisterAsync),
         Get("/api/status", Access.Public, StatusAsync),
         Get("/api/news", Access.Public, NewsAsync),
+        Get(LauncherNewsPath, Access.Public, LauncherNewsAsync),
         Get("/api/online", Access.Public, OnlineAsync),
         Get("/api/rankings", Access.Public, BoardsAsync),
         Get("/api/rankings/{}", Access.Public, BoardAsync),
@@ -184,6 +187,21 @@ public sealed partial class PanelSite
         int limit = int.TryParse(call.Query("limit"), System.Globalization.NumberStyles.None,
             System.Globalization.CultureInfo.InvariantCulture, out int n) ? Math.Clamp(n, 1, 50) : 20;
         return Reply.Ok(new { news = await _backend.NewsAsync(limit) });
+    }
+
+    private async Task<Reply> LauncherNewsAsync(Call call)
+    {
+        var news = await _backend.NewsAsync(5);
+        return Reply.Ok(new
+        {
+            items = news.Select(n => new
+            {
+                n.Title,
+                text = n.Body,
+                tag = n.Tag,
+                date = n.Published.UtcDateTime.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            }),
+        });
     }
 
     /// <summary>Characters in the world; the account behind each one only for an admin.</summary>

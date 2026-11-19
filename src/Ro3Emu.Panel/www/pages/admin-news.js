@@ -31,11 +31,11 @@ async function adminNewsPage() {
         h('button', { type: 'button', class: 'btn secondary sm', onclick: () => edit(n) }, 'Edit'),
         h('button', { type: 'button', class: 'btn secondary sm', onclick: () => remove(n).catch(e => toast(e.message)) }, 'Delete')) },
     ], news)
-    : emptyState('pen', 'No news yet', 'Write the first one on the right; the public News and Home pages show it.');
+    : emptyState('pen', 'No news yet', 'Write your first announcement to share it on the website and in the launcher.');
   edit(null);
   return adminLayout('news',
     pageHead({ crumbs: adminCrumbs({ label: 'News editor' }), title: 'News editor', actions: densityToggle(),
-      subtitle: 'Pinned items stay on top. A publish time in the future keeps an item hidden until then. Changes are in the audit log.' }),
+      subtitle: 'Published posts appear on the website and the next time players open the launcher. Pin a post to keep it on top, or set a future publish time to schedule it.' }),
     h('div', { class: 'grid' },
       h('div', { class: 'span-7' }, card('All news', null, list)),
       h('div', { class: 'span-5' }, card('Write', h('button', { type: 'button', class: 'btn secondary sm', onclick: () => edit(null) }, 'New'), body(editorHost)))));

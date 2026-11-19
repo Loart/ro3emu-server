@@ -315,6 +315,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classL
 
 const routes = [
   [/^\/$/, homePage, 'home'],
+  [/^\/play$/, launcherGuidePage, 'play'],
   [/^\/online$/, onlinePage, 'online'],
   [/^\/rankings$/, rankingsPage, 'rankings'],
   [/^\/news$/, newsPage, 'news'],
@@ -326,7 +327,7 @@ const routes = [
   [/^\/admin\/accounts\/([^/]+)$/, adminAccount, 'admin'],
   [/^\/admin\/audit$/, adminAudit, 'admin'],
 ];
-const titles = { online: "Who's online", rankings: 'Rankings', news: 'News', admin: 'Admin' };
+const titles = { play: 'Launcher', online: "Who's online", rankings: 'Rankings', news: 'News', admin: 'Admin' };
 
 let routeToken = 0;
 async function route() {
@@ -410,46 +411,6 @@ function boardTable(board, limit) {
   ].filter(Boolean), rows, { short: !!limit });
 }
 
-// ---------------------------------------------------------------- home
-
-async function homePage() {
-  const [status, news, online, level] = await Promise.all([api('GET', '/api/status'), api('GET', '/api/news?limit=5'),
-    api('GET', '/api/online'), api('GET', '/api/rankings/level')]);
-  const s = state.session;
-  const mine = s?.account ? await api('GET', '/api/account').catch(() => null) : null;
-  const head = pageHead({
-    title: status.name, big: true, after: chip('online', 'Online'), subtitle: status.tagline,
-    meta: [['Area', status.area], ['Version', mono(status.version || '-')], ['Started', stamp(status.startedUtc)]],
-  });
-  const kpis = h('section', { class: 'kpis', 'aria-label': 'Server figures' },
-    kpi('Online now', 'users', num(status.players), status.players === 1 ? 'player' : 'players', 'characters in the world'),
-    kpi('Uptime', 'clock', duration(status.uptimeSeconds), null, ['since ', stamp(status.startedUtc)]),
-    kpi('Accounts', 'user', num(status.accounts), null, 'registered on this realm'),
-    kpi('Characters', 'trophy', num(status.characters), null, 'created in the game'));
-  const newsCard = card('Latest news', link('/news', { class: 'more' }, 'All news', icon('arrow')),
-    news.news.length
-      ? h('ul', { class: 'rows' }, news.news.map(n => h('li', null, h('span', { class: 't' }, n.title), day(n.published),
-        h('span', { class: 'm' }, n.pinned && chip('info', 'Pinned'), chip(n.tag, n.tag), n.author && ['by ', n.author]))))
-      : emptyState('book', 'No news yet', 'Announcements from the team will show up here.'));
-  const onlineCard = card("Who's online", link('/online', { class: 'more' }, 'All', icon('arrow')),
-    online.players.length ? onlineTable(online.players, false, 6) : emptyState('users', 'Nobody is in the world', null),
-    online.players.length > 6 ? `${num(online.players.length - 6)} more in the world` : null);
-  const levelCard = card('Top 5 by level', link('/rankings', { class: 'more' }, 'Rankings', icon('arrow')),
-    level.rows.length ? boardTable(level, 5) : emptyState('trophy', 'Nobody is ranked yet', null));
-  const meCard = card('Your characters', mine && link('/account', { class: 'more' }, 'Account', icon('arrow')),
-    mine
-      ? (mine.characters.length
-        ? table([{ label: 'Name', grow: true, value: c => h('span', { class: 'strong' }, c.name) }, levelCol,
-          { label: 'Status', value: c => c.online ? chip('online', 'Online') : chip('', 'Offline') }], mine.characters.slice(0, 5), { short: true })
-        : emptyState('user', 'No characters yet', 'Create one in the game.'))
-      : body(h('p', { class: 'hint' }, 'Log in with the account name and password you play with to see your characters and change your password.'),
-        h('div', { class: 'row' }, link('/login', { class: 'btn primary sm' }, 'Log in'),
-          s?.registration ? link('/register', { class: 'btn secondary sm' }, 'Create an account') : null)));
-  return [head, kpis,
-    h('div', { class: 'grid' }, h('div', { class: 'span-7' }, newsCard), h('div', { class: 'span-5' }, onlineCard)),
-    h('div', { class: 'grid' }, h('div', { class: 'span-7' }, levelCard), h('div', { class: 'span-5' }, meCard))];
-}
-
 // ---------------------------------------------------------------- public pages
 
 async function onlinePage() {
@@ -526,7 +487,12 @@ function authCard(title, lead, content, foot) {
 
 async function loginPage() {
   if (state.session?.account) { navigate(nextPath(), true); return null; }
-  return authCard('Log in', 'Use the account name and password you play with.', form([
+  return authCard('Log in', 'Use the account name and password you play with.', playerLoginForm(),
+    state.session?.registration && ['New here? ', link('/register', null, 'Create an account')]);
+}
+
+function playerLoginForm() {
+  return form([
     field('Account name', 'account', 'text', { autocomplete: 'username', maxlength: '64' }),
     field('Password', 'password', 'password', { autocomplete: 'current-password' })],
   'Log in', async values => {
@@ -536,7 +502,7 @@ async function loginPage() {
     adopt(result);
     navigate(nextPath(), true);
     toast('Welcome back, ' + state.session.account + '.');
-  }), state.session?.registration && ['New here? ', link('/register', null, 'Create an account')]);
+  });
 }
 
 async function registerPage() {

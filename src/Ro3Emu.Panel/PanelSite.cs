@@ -22,7 +22,7 @@ public sealed partial class PanelSite
     private const int MaxBody = 16 * 1024;
     /// <summary>The site's own pages: the first path segment of every route app.js draws.</summary>
     private static readonly HashSet<string> Pages = new(StringComparer.Ordinal)
-    { "", "online", "rankings", "news", "login", "register", "account", "admin", "items", "monsters", "maps", "characters",
+    { "", "play", "online", "rankings", "news", "login", "register", "account", "admin", "items", "monsters", "maps", "characters",
         "database", "cards", "crafting", "classes", "skills", "pets", "mounts", "shops", "elements", "events", "mvps", "profiles", "guilds", "territory", "market" };
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed partial class PanelSite
     {
         Secure(context.Response.Headers);
         string path = context.Request.Path.Value ?? "/";
-        if (path.StartsWith("/api/", StringComparison.Ordinal))
+        if (path == LauncherNewsPath || path.StartsWith("/api/", StringComparison.Ordinal))
         {
             await ApiAsync(context, path);
             return;
