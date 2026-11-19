@@ -101,8 +101,9 @@ async function homePage() {
 function launcherGuidePage() {
   return [pageHead({ crumbs: [{ href: '/', label: 'Home' }, { label: 'Launcher' }], title: 'Windows launcher' }),
     card('Playing on Midgard Chronicles', null, body(
-      h('p', null, 'The Windows launcher is in testing. Its public download is pending the first verified character entry on the hosted realm.'),
-      h('p', { class: 'guide-next' }, 'You can use the player panel now to manage your account and explore the game database.'),
-      h('div', { class: 'row' }, link(state.session?.account ? '/account' : '/login', { class: 'btn primary' }, 'Player panel'),
+      h('p', null, 'Download the launcher for Windows. Right-click the ZIP, choose Extract All, then open MidgardChronicles.exe from the extracted folder.'),
+      h('p', { class: 'guide-next' }, 'On your first launch, select Install to download the game.'),
+      h('div', { class: 'row' }, h('a', { href: '/downloads/Midgard-Chronicles-Launcher.zip', download: 'Midgard-Chronicles-Launcher.zip', class: 'btn primary' }, 'Download for Windows'),
+        link(state.session?.account ? '/account' : '/login', { class: 'btn secondary' }, 'Player panel'),
         link('/database', { class: 'btn secondary' }, 'Game database'))))];
 }
