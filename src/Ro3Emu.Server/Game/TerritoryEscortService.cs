@@ -255,6 +255,9 @@ public sealed partial class TerritoryEscortService : IGameTicker
         this._accounts = accounts;
         this._guilds = guilds;
         this._guildService = guildService;
+        var escortScenes = Data.Config.EscortPointAreaConfig.All(data).Select(r => r.MapId).ToHashSet();
+        _researchEscortScene = s => EscortLine(s) && escortScenes.Contains(s.SceneEntry);
+        guildService.ResearchEscort = s => _researchEscortScene(s) && Playing;
         this._roles = roles;
         this._data = data;
         this._character = character;

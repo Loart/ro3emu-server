@@ -127,12 +127,13 @@ public sealed class GuildCampfireTests : IAsyncLifetime
             || e.IsGame(GameAoiSink.SyncAoiView) && AoIViewChangeData.Parser.ParseFrom(e.Body).Bases.Any(b => b.EntityTemplateID == 7020004));
 
         Assert.Equal(0, (await QuestProbe.ReadAsync(_app, "alice", 1602000))!.CompleteNum[0]); // no event yet
-        // 20:00: the member already inside gets the fire, the seeds and stage 1.
-        _clock.Advance(20);
+        // Assembly starts at 20:00 with the fire and its host.
+        _clock.Advance(10);
         var ao = await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
             r => r.Bases.Any(b => b.EntityTemplateID == 7020004));
         var fire = ao.Bases.Single(b => b.EntityTemplateID == 7020004);
-        var seed = ao.Bases.First(b => b.EntityTemplateID == 7020001);
+        var host = ao.Bases.Single(b => b.EntityTemplateID == 7020006);
+        Assert.DoesNotContain(ao.Bases, b => b.EntityTemplateID is >= 7020001 and <= 7020003);
         Assert.Equal(1, (await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser)).NowStage);
         // Present at the bonfire as the event starts: quest target 106018 is met.
         await QuestProbe.DoneAsync(_app, "alice", 1602000); // delivery waits on its action 115
@@ -147,6 +148,19 @@ public sealed class GuildCampfireTests : IAsyncLifetime
         Assert.Equal(ErrorCodes.NpcTooFar,
             (await Next(alice, GuildCampfireService.Accelerant, GuildCampFireAddAccelerantRsp.Parser)).Result);
 
+        var talk = new NpcInteractionReq { NpcUid = (long)host.Uuid, InteractionId = 70200061 };
+        await alice.SendGameAsync(SceneService.NpcInteraction, talk);
+        Assert.Equal(ErrorCodes.NpcTooFar, (await Next(alice, SceneService.NpcInteraction, NpcInteractionRsp.Parser)).Result);
+        await Move(alice, host.MovementInfo.Pos);
+        await alice.SendGameAsync(SceneService.NpcInteraction, talk);
+        Assert.Equal(0, (await Next(alice, SceneService.NpcInteraction, NpcInteractionRsp.Parser)).Result);
+
+        _clock.Advance(30);
+        await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser, r => r.NowStage == 2);
+        var coals = await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
+            r => r.Bases.Any(b => b.EntityTemplateID == 7020001));
+        var seed = coals.Bases.First(b => b.EntityTemplateID == 7020001);
+        _clock.Advance(269); // 20:04:59, the final second of preparation
         await Move(alice, seed.MovementInfo.Pos);
         var collect = new NpcInteractionReq { NpcUid = (long)seed.Uuid, InteractionId = 41002104 };
         await alice.SendGameAsync(SceneService.NpcInteraction, collect);
@@ -176,9 +190,18 @@ public sealed class GuildCampfireTests : IAsyncLifetime
             (await Next(alice, GuildCampfireService.Accelerant, GuildCampFireAddAccelerantRsp.Parser)).Result);
         Assert.Equal((1, -1L, (int)EconomyReason.GuildActivityCost), FuelLedger((long)alice.Self!.Uuid));
 
-        _clock.Advance(30);
-        Assert.Equal(2, (await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser,
-            r => r.NowStage == 2)).NowStage);
+        Assert.DoesNotContain(alice.Inbox.Snapshot(), e => e.IsGame(GuildCampfireService.Lucky));
+        await _app.Services.GetRequiredService<GameLoop>().InvokeAsync(() =>
+        {
+            Assert.DoesNotContain(_app.Services.GetRequiredService<World>().AllUnits().OfType<MonsterUnit>(),
+                m => m.InstanceId == change.SceneID && m.Template.NpcId is >= 7020018 and <= 7020020);
+            return Task.CompletedTask;
+        });
+        _clock.Advance(1);
+        await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser, r => r.NowStage == 3);
+        await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser, r => r.LeaveAoi.Contains(seed.Uuid));
+        await alice.SendGameAsync(SceneService.NpcInteraction, collect);
+        Assert.Equal(ErrorCodes.FeatureUnavailable, (await Next(alice, SceneService.NpcInteraction, NpcInteractionRsp.Parser)).Result);
 
         MonsterUnit? fruit = null;
         for (int i = 0; i < 100 && fruit == null; i++)
@@ -203,7 +226,19 @@ public sealed class GuildCampfireTests : IAsyncLifetime
         await Next(alice, CombatService.SkillHit, SkillHitInfo.Parser,
             hit => hit.Dsts.Any(d => d.DstID == fruit.Uid && d.IsDead));
         var nextFruit = await Next(alice, GuildCampfireService.Fruit, GuildCampFireCreateMonsterFruitNotify.Parser);
-        Assert.All(nextFruit.Infos, i => Assert.True(i.NpcGuid > 0));
+        await _app.Services.GetRequiredService<GameLoop>().InvokeAsync(() =>
+        {
+            var alive = _app.Services.GetRequiredService<World>().AllUnits().OfType<MonsterUnit>();
+            Assert.Single(alive, m => m.InstanceId == change.SceneID && m.Template.NpcId == 7020018
+                && !m.Dead && m.Uid != fruit.Uid && nextFruit.Infos.Any(i => i.NpcGuid == m.Uid));
+            return Task.CompletedTask;
+        });
+        using (var db = _app.Services.GetRequiredService<AccountStore>().Open())
+        using (var cmd = db.CreateCommand())
+        {
+            cmd.CommandText = """SELECT json_extract(CAST(state AS TEXT), '$.FruitKills."2"') FROM guild_campfire""";
+            Assert.Equal(1L, cmd.ExecuteScalar());
+        }
         // The kill drops one or two Transformation Manuals (NPC 7020027) beside the next fruit monster.
         var manuals = await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
             r => r.Bases.Any(b => b.EntityTemplateID == GuildCampfireService.ManualNpc));
@@ -217,13 +252,18 @@ public sealed class GuildCampfireTests : IAsyncLifetime
         await alice.SendGameAsync(SceneService.NpcInteraction, transform);
         Assert.Equal(ErrorCodes.NpcMissing, (await Next(alice, SceneService.NpcInteraction, NpcInteractionRsp.Parser)).Result);
 
-        // 20:04:30, 240 s into stage 2: the Third Prize draw (action 5). One member is below the 10-player band: no winner.
+        // 20:09, four minutes into the first fruit round. One member is below the prize band.
         _clock.Advance(240);
         var lucky = await Next(alice, GuildCampfireService.Lucky, GuildCampFireLuckyPlayerNotify.Parser);
         Assert.Equal(3, lucky.AwardLevel);
         Assert.Empty(lucky.PlayerList);
 
-        _clock.Advance(620); // 20:15, configured client boss stage 4
+        _clock.Advance(60); // second fruit round, still public stage 3
+        await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser, r => r.NowStage == 3);
+        await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser, r => r.Bases.Any(b => b.EntityTemplateID == 7020019));
+        _clock.Advance(240);
+        await Next(alice, GuildCampfireService.Lucky, GuildCampFireLuckyPlayerNotify.Parser, r => r.AwardLevel == 2);
+        _clock.Advance(60); // 20:15, configured client boss stage 4
         Assert.Equal(4, (await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser,
             r => r.NowStage == 4)).NowStage);
         MonsterUnit? boss = null;
@@ -252,11 +292,13 @@ public sealed class GuildCampfireTests : IAsyncLifetime
         await alice.SendGameAsync(GuildCampfireService.Info, new GetGuildCampFireReq());
         Assert.True((await Next(alice, GuildCampfireService.Info, GetGuildCampFireRsp.Parser)).NowStageInfo.BossDead);
 
+        _clock.Advance(240);
+        await Next(alice, GuildCampfireService.Lucky, GuildCampFireLuckyPlayerNotify.Parser, r => r.AwardLevel == 1);
         await alice.DisposeAsync();
         await using var again = await InWorld("Alice", create: false);
         await again.SendGameAsync(GuildCampfireService.PlayerInfo, new NullArg());
         Assert.Equal(1, (await Next(again, GuildCampfireService.PlayerInfo, CampFirePlayerInfo.Parser)).AddSeedCount);
-        _clock.Advance(600);
+        _clock.Advance(360);
         // 20:25, after the event: the home is still enterable, and a room that never saw the event gets no Finish.
         await again.SendGameAsync(DungeonService.Enter, new EnterDungeonReq { SceneEntry = GuildCampfireService.Dungeon });
         Assert.Equal(0, (await Next(again, DungeonService.Enter, EnterDungeonRsp.Parser)).Result);

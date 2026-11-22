@@ -12,7 +12,7 @@ public sealed partial class RoleSessionService(RoleStore roles, Data.GameData da
     Microsoft.Extensions.Options.IOptions<ServerOptions> options)
 {
     /// <summary>Novice; JobConfig[1000] picks the male/female unit.</summary>
-    private const int NoviceCareer = 1000;
+    internal const int NoviceCareer = 1000;
 
     /// <summary>Speed attribute (enum_unitAttrMap 113) when JobConfig is unavailable; Novice's _kAttri has 700.</summary>
     public const long DefaultSpeed = 700;

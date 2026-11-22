@@ -347,6 +347,9 @@ public sealed class SocialMessages(ChatService chat, TeamService teams, EmblemSe
         {
             await guilds.EliteTeamAsync(session);
         });
+        routes.Map(GuildService.QueryResearch, "guilds", (session, _, _) => guilds.QueryResearchAsync(session));
+        routes.Map(GuildService.UpgradeResearch, "guilds", (session, _, body) =>
+            guilds.UpgradeResearchAsync(session, OperateGuildTechReq.Parser.ParseFrom(body.Span)));
         routes.Map(GuildService.BuildUpgrade, "guilds", async (session, msgId, body) =>
         {
             await guilds.BuildUpgradeAsync(session, GuildBuildLevelUpReq.Parser.ParseFrom(body.Span));

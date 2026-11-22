@@ -148,7 +148,7 @@ public sealed partial class GuildCampfireService
     {
         if (req.InteractionId != ManualInteraction) return ErrorCodes.NpcParameter;
         if (!_manuals.TryGetValue(req.NpcUid, out var manual) || manual.Room != room.Id) return ErrorCodes.NpcMissing;
-        if (CurrentStage() is < 2 or > 4) return ErrorCodes.FeatureUnavailable;
+        if (CurrentStage() is < 3 or > 4) return ErrorCodes.FeatureUnavailable;
         if (!Near(s, manual.Position, ManualReach)) return ErrorCodes.NpcTooFar;
         if (TransformOf(s) != null) return ErrorCodes.RewardClaimed;
         var buffs = TransformBuffs();
@@ -165,17 +165,13 @@ public sealed partial class GuildCampfireService
         CampFireAffixNewConfig.All(_data).FirstOrDefault(r => r.Phase == stage && r.ActionType == PrizeDrawAction) is { Row.ValueKind: System.Text.Json.JsonValueKind.Object } row
             ? row : null;
 
-    /// <summary>The stage's draw is due: _iDelayTime after the stage's CampFireTimeLine start (stage 2: 20:04:30).</summary>
-    private bool PrizeDue(int stage, long second) => PrizeDraw(stage) is { } draw
-        && CampFireTimeLine.Get(_data, stage) is { } line && second >= StartTime() + (line.TimeLine + draw.DelayTime) / 1000;
-
     /// <summary>Tick: each live room's due draw, posted once per room, day and stage.</summary>
-    private void RunDueDraws(IEnumerable<(long Guild, InstanceService.Room Room)> live, int stage, long day, long second)
+    private void RunDueDraws(IEnumerable<(long Guild, InstanceService.Room Room)> live, PartyPhase phase, long day, long second)
     {
-        if (stage is < 2 or > 4 || !PrizeDue(stage, second)) return;
+        if (phase.PrizeAtMs is not { } due || (second - StartTime()) * 1000 < due) return;
         foreach (var (guild, room) in live)
-            if (_prizePosted.Add((room.Id, day, stage)))
-                _loop.TrackLegacyDetached("campfire prize draw", () => PrizeDrawAsync(guild, room, stage));
+            if (_prizePosted.Add((room.Id, day, phase.Id)))
+                _loop.TrackLegacyDetached("campfire prize draw", () => PrizeDrawAsync(guild, room, phase.Id));
     }
 
     /// <summary>CampFireAffixNewConfig action 5 of the stage: once per guild and event day.</summary>

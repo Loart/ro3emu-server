@@ -66,7 +66,7 @@ public sealed class GameSession(PhonestChannel channel, TrafficLog traffic)
         GuildOnlinePublished = false;
         Progress = null;
         Daily = null; DailyRows = null; DailyReady = false;
-        WildAfk = null; Guild = null; Tasks = null;
+        WildAfk = null; Guild = null; GuildResearch = null; Tasks = null;
         Achievements = null; AchievementRuntime = null; AdventureGroupRole = null;
         Library = null; CardLibraryReadyAttachment = null; GrowthClass = null;
         NewActivities = null; ActivitiesReady = false;
@@ -413,6 +413,7 @@ public sealed class GameSession(PhonestChannel channel, TrafficLog traffic)
 
     /// <summary>5047 role view, rebuilt from the exclusive guild membership index at login.</summary>
     public Romsg.DBRoleGuildInfo? Guild { get; set; }
+    internal GuildService.ResearchStats? GuildResearch { get; set; }
 
     /// <summary>Spirit Tower progress (5065), including four party slots</summary>
     public Romsg.DBClimTower? Tower { get; set; }

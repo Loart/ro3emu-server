@@ -149,6 +149,62 @@ public sealed class GuildHomeTests : IAsyncLifetime
     private static int HomeSwitches(BotClient bot) => bot.Inbox.Snapshot()
         .Count(e => e.IsGame(MsgId.SwitchSceneLine) && SwitchSceneLineResp.Parser.ParseFrom(e.Body).SceneEntry == Home);
 
+    [ClientDataFact]
+    public async Task InstituteResearchSpendsOnceAndAppliesOnlyTheCurrentLevelInGuildWar()
+    {
+        const long strength = 14100111;
+        await using var founder = await InWorld("Alice");
+        await using var member = await InWorld("Bob");
+        long guild = await CreateGuild(founder, "Hearth");
+        await Join(founder, member, guild);
+        var store = Service<GuildStore>();
+        async Task<OperateGuildTechRes> Upgrade(BotClient bot, int level, long group = strength)
+        {
+            await bot.SendGameAsync(GuildService.UpgradeResearch, new OperateGuildTechReq { TechId = group, Level = level });
+            return await Next(bot, GuildService.UpgradeResearch, OperateGuildTechRes.Parser);
+        }
+        Task Fund(long materials, int institute) => OnLoop(() =>
+        {
+            var g = store.Get(guild)!;
+            g.Status = (int)GuildStatus.Normal;
+            g.Materials = materials;
+            g.Buildings[3] = institute;
+            Assert.True(store.Save(g));
+            return Task.CompletedTask;
+        });
+        await Fund(999, 1);
+        Assert.Equal(ErrorCodes.GuildSupplies, (await Upgrade(founder, 1)).Result);
+        await Fund(5000, 0);
+        Assert.Equal(ErrorCodes.GuildHallLow, (await Upgrade(founder, 1)).Result);
+        await Fund(5000, 3);
+        Assert.Equal(ErrorCodes.GuildPermission, (await Upgrade(member, 1)).Result);
+        Assert.Equal(ErrorCodes.FeatureUnavailable, (await Upgrade(founder, 1, 14100211)).Result);
+        Assert.Equal(ErrorCodes.Parameter, (await Upgrade(founder, 2)).Result);
+        Assert.Equal(0, (await Upgrade(founder, 1)).Result);
+        Assert.Equal(ErrorCodes.Parameter, (await Upgrade(founder, 1)).Result);
+        Assert.Equal(4000, store.Get(guild)!.Materials);
+        Assert.Equal(2, (await Upgrade(founder, 2)).TechInfo.TechLevel[strength]);
+        Assert.Equal(0, store.Get(guild)!.Materials);
+        await founder.SendGameAsync(GuildService.QueryResearch, new QueryGuildTechReq());
+        Assert.Equal(2, (await Next(founder, GuildService.QueryResearch, QueryGuildTechRes.Parser)).TechInfo.TechLevel[strength]);
+        await OnLoop(() =>
+        {
+            var s = Session(member);
+            var research = Assert.IsType<GuildService.ResearchStats>(s.GuildResearch);
+            double[] outside = new double[6];
+            research.Add(s, outside);
+            Assert.Equal(0, outside[0]);
+            foreach (int mode in new[] { GuildService.StrongholdMode, GuildService.EscortMode, GuildService.SiegeMode })
+                Assert.Equal(20, research.ByMode[mode][0]);
+            var old = store.Get(guild)!;
+            old.ResearchSeason--;
+            Assert.True(store.Save(old));
+            return Task.CompletedTask;
+        });
+        await founder.SendGameAsync(GuildService.QueryResearch, new QueryGuildTechReq());
+        Assert.Equal(0, (await Next(founder, GuildService.QueryResearch, QueryGuildTechRes.Parser)).TechInfo.TechLevel[strength]);
+    }
+
     private async Task<SwitchSceneLineResp> Leave(BotClient bot, long outside)
     {
         await bot.SendGameAsync(DungeonService.Leave, new LeaveDungeonReq());
@@ -212,13 +268,25 @@ public sealed class GuildHomeTests : IAsyncLifetime
             return Task.CompletedTask;
         });
 
-        // Outside the event the home is empty: no campfire stage, finish or NPCs.
+        // The permanent statues are visible outside the event. The fire and host are seasonal.
         await Task.Delay(150);
         foreach (var bot in new[] { alice, bob, carol })
         {
             Assert.DoesNotContain(bot.Inbox.Snapshot(), e => e.IsGame(GuildCampfireService.Stage) || e.IsGame(GuildCampfireService.Finish));
             Assert.DoesNotContain(bot.Inbox.Snapshot(), e => e.IsGame(GameAoiSink.SyncAoiView)
-                && AoIViewChangeData.Parser.ParseFrom(e.Body).Bases.Any(b => b.EntityTemplateID == 7020004));
+                && AoIViewChangeData.Parser.ParseFrom(e.Body).Bases.Any(b => b.EntityTemplateID is 7020004 or 7020006));
+            var statues = (await Next(bot, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
+                v => v.Bases.Any(n => n.EffigyData != null))).Bases;
+            Assert.Equal(3, statues.Count);
+            Assert.Equal(3, statues.Select(n => n.MovementInfo.Pos.ToString()).Distinct().Count());
+            Assert.Contains(statues, n => n.Name == (bot == carol ? "Carol" : "Alice"));
+            Assert.All(statues, n =>
+            {
+                Assert.Equal(25000001UL, n.EntityTemplateID);
+                Assert.True(n.EffigyData.Carrer > 0);
+                var p = n.MovementInfo.Pos;
+                Assert.True(Service<WorldData>().Map(Home)!.IsWalkable(p.X, p.Y, p.Z));
+            });
         }
 
         // Already inside: 550 and no scene change.
@@ -395,25 +463,36 @@ public sealed class GuildHomeTests : IAsyncLifetime
     public async Task CampfireRunsInTheLongLivedRoomOnEachEventDay()
     {
         await using var alice = await InWorld("Alice");
+        await using var bob = await InWorld("Bob");
         long guild = await CreateGuild(alice, "Hearth");
+        await Join(alice, bob, guild);
         long room = await Enter(alice);
 
-        // 20:00: the members already inside get the fire, the seeds and stage 1.
+        // Assembly shows the fire. A guildmate entering during preparation also gets the coals.
         _clock.Set(new DateTimeOffset(2026, 10, 8, 20, 0, 10, TimeSpan.Zero));
         var view = await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
             r => r.Bases.Any(b => b.EntityTemplateID == 7020004));
-        Assert.Contains(view.Bases, b => b.EntityTemplateID == 7020001);
+        Assert.DoesNotContain(view.Bases, b => b.EntityTemplateID == 7020001);
         Assert.Equal(1, (await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser)).NowStage);
         ulong fire = view.Bases.Single(b => b.EntityTemplateID == 7020004).Uuid;
+        ulong host = view.Bases.Single(b => b.EntityTemplateID == 7020006).Uuid;
 
+        _clock.Set(new DateTimeOffset(2026, 10, 8, 20, 3, 0, TimeSpan.Zero));
+        await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser, r => r.NowStage == 2);
+        Assert.Equal(room, await Enter(bob));
+        var lateView = await Next(bob, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser,
+            r => r.Bases.Any(b => b.Uuid == fire));
+        var coal = lateView.Bases.First(b => b.EntityTemplateID == 7020001);
+        Assert.Contains(lateView.Bases, b => b.Uuid == host);
         _clock.Set(new DateTimeOffset(2026, 10, 8, 20, 15, 0, TimeSpan.Zero));
+        await Next(bob, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser, r => r.LeaveAoi.Contains(coal.Uuid));
         await Next(alice, GuildCampfireService.Stage, GuildCampFireStageInfo.Parser, r => r.NowStage == 4);
         var firstBoss = await Boss(room);
 
         // 20:25: Finish, the fire leaves, the event's actors are cleared; the room itself stays.
         _clock.Set(new DateTimeOffset(2026, 10, 8, 20, 25, 0, TimeSpan.Zero));
         await Next(alice, GuildCampfireService.Finish, GuildCampFireFinishNotify.Parser);
-        await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser, r => r.LeaveAoi.Contains(fire));
+        await Next(alice, GameAoiSink.SyncAoiView, AoIViewChangeData.Parser, r => r.LeaveAoi.Contains(fire) && r.LeaveAoi.Contains(host));
         await Until(() => !Service<World>().AllUnits().OfType<MonsterUnit>().Any(m => m.InstanceId == room && !m.Dead),
             "the finished event's actors are removed");
         Assert.Equal(room, Service<GuildHomeService>().RoomOf(guild)?.Id);
