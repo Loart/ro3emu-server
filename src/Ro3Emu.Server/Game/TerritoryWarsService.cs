@@ -231,6 +231,18 @@ public sealed partial class TerritoryWarsService : IGameTicker
         combat.PvpDealtAsync.Add(GloryHitAsync);
         character.StateChanged.Add(s => _ = SyncGloryAsync(s));
         guilds.WarSideOf = WarSide;
+        scene.BeforeSelf.Add(s =>
+        {
+            if (s.GuildResearch != null) character.Refresh(s);
+            return Task.CompletedTask;
+        });
+        guilds.ResearchBattleMode = s =>
+            s.SiegeBattle is { } siege && s.InstanceId == siege.Room.Id && SiegeActive(siege) &&
+                s.Role is { } sr && siege.State.Players.TryGetValue(sr.Id, out var sp) && sp.Guild == s.Guild?.GuildId
+                ? GuildService.SiegeMode :
+            s.TerritoryBattle is { } battle && s.InstanceId == battle.Room.Id && Active(battle) &&
+                s.Role is { } br && battle.State.Players.TryGetValue(br.Id, out var bp) && bp.Guild == s.Guild?.GuildId
+                ? GuildService.StrongholdMode : 0;
         guilds.WarMachines = new MachineSite(this);
     }
 

@@ -21,7 +21,7 @@ namespace Ro3Emu.Server.Game;
 public sealed partial class GuildService(GameData data, GuildStore store, RoleStore roles, SessionRegistry sessions,
     CharacterService character, FunctionService functions, ChatService chat, IOptions<ServerOptions> options,
     TimeProvider clock, Ownership.OwnerRegistry ownerRegistry, AwardService awards, GameLoop loop, SceneService scene,
-    TeamService teams, MailService mail, ILogger<GuildService> log)
+    TeamService teams, MailService mail, ILogger<GuildService> log, SeasonService seasons)
 {
     public const uint GuildSync = 5047, Create = 32210, Recommend = 32211, HelperList = 32212, Full = 32213, MemberChange = 32214;
     public const uint CheckSensitive = 10003;
@@ -241,6 +241,7 @@ public sealed partial class GuildService(GameData data, GuildStore store, RoleSt
 
     private async Task SendFull(GameSession s, GuildStore.State g, bool joined)
     {
+        s.GuildResearch = ResearchBonuses(g);
         var full = FullInfo(g, joined);
         full.IsLeagueElite = s.Role != null && IsLeagueElite(g, s.Role.Id);
         await s.SendGameAsync(Full, full);
@@ -270,7 +271,10 @@ public sealed partial class GuildService(GameData data, GuildStore store, RoleSt
         ntf.Info.Add(MemberInfo(member, excludeOnlineRole));
         foreach (var m in g.Members.Values)
             if (Online(m.RoleId) is { } s) await s.SendGameAsync(MemberChange, ntf);
+        if (RosterPublished != null) await RosterPublished(g);
     }
+
+    internal Func<GuildStore.State, Task>? RosterPublished { get; set; }
 
     private async Task PushApplications(GuildStore.State g, GuildStore.Application a, GuildEnterApplyChangeNtf.Types.ChangeType kind)
     {
@@ -299,6 +303,11 @@ public sealed partial class GuildService(GameData data, GuildStore store, RoleSt
 
     private async Task SendMemberClear(GameSession s, GuildStore.State former)
     {
+        if (s.GuildResearch != null)
+        {
+            s.GuildResearch = null;
+            if (s.Progress != null) await character.RefreshStatsAsync(s);
+        }
         // (inferred) 32214 only changes roster. A full reset is the sole observed route that clears GuildBaseInfo.shortUid.
         // Keep real building rows so DecodeBuilding's unguarded pairs(building) can consume the exit packet.
         var clear = new GuildFullInfoNtf

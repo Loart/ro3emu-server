@@ -45,6 +45,8 @@ public sealed class GuildStore(AccountStore accounts)
         public Dictionary<long, Application> HelperApplies { get; set; } = [];
         public Dictionary<int, List<int>> Rights { get; set; } = [];
         public Dictionary<long, long> Buildings { get; set; } = [];
+        public long ResearchSeason { get; set; }
+        public Dictionary<long, long> ResearchLevels { get; set; } = [];
         public Dictionary<long, long> BuildingEndTimes { get; set; } = [];
         /// <summary>Guild Activity (item 106) earned this week and last week; ActivityWeek = the week's Monday 05:00 (unix s).</summary>
         public long CurActivity { get; set; }

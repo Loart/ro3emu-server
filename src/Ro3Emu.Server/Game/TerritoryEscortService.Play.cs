@@ -20,6 +20,7 @@ public sealed partial class TerritoryEscortService
     private readonly ConcurrentDictionary<(long Scene, long Guild), int> _lastSceneCounts = new();
     private long _nextInvite = 1;
     private int _lastStageType = int.MinValue;
+    private readonly Func<GameSession, bool> _researchEscortScene;
     private sealed record TransferInvitation(long Inviter, long Recipient, long Scene, Vec3 Position, long Until);
 
     /// <summary>83085 and 83078 share the three fields read by LC_DAL_TerritoryWars._processTerritoryWarsEscortStageInfo.</summary>
@@ -143,8 +144,12 @@ public sealed partial class TerritoryEscortService
         await RefreshCartActorsAsync();
         await RefreshCargoActorsAsync();
         if (stageChanged)
+        {
+            await RoleFanout.EachAsync(_sessions.All().Where(s => s.Role != null && !s.SceneLoading && s.GuildResearch != null &&
+                _researchEscortScene(s)), _character.RefreshStatsAsync);
             await RoleFanout.EachAsync(_sessions.All().Where(x => x.Role != null),
                 peer => peer.SendGameAsync(InfoNtf, StageData())); // (inferred) 83078 uses the 83085 three-field wire shape.
+        }
         await PublishSceneCountsAsync();
     }
 

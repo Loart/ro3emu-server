@@ -203,6 +203,8 @@ public sealed partial class CharacterService
     {
         var baseStats = new double[6];
         for (int i = 0; i < 6; i++) baseStats[i] = p.Stats[i];
+        if (session.GuildResearch is { } research && session.Guild?.GuildId == research.Guild)
+            research.Add(session, baseStats);
         foreach (var item in Equipped(session))
         {
             if (EquipRow(item.Entry) is not { } equip) continue;

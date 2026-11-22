@@ -40,6 +40,12 @@ Every item below is **(inferred)**, rather than verified original-server behavio
 - Guild activity/pray/salary/resource-earning rules, original sensitive-word lexicon, departure/rejoin punishment and full original-server parity remain unqualified. Recruitment message copy and cross-server chat delivery are not original-server qualified.
 - GvG, GvE, league and territory-war messages retain their existing routing and behavior (see [territory-wars.md](territory-wars.md)). No `MultiverseSchedule` is introduced; existing server season settings are unchanged.
 
+## Guild Institute and hall statues
+
+The stock Guild Technology screen uses 32304 to read the guild's levels and 32305 to buy the next level of a technology group. The server checks the exported Institute requirement and Guild Supplies price, and commits the level, treasury debit and receipt together. Building-upgrade permission governs spending (inferred). Learned levels reset with the season. The named STR, AGI, VIT, INT and DEX technologies apply their current level's total in Stronghold Battles, Convoy Escort Battles and Sieges. The export's Test Buff and Test Skill entries have no supported production effect and cannot spend supplies.
+
+GuildSettingConfig supplies three Guild Area Statue slots. Members see their guild master's, leader's and Charisma Baby's effigies, with the stored gender, career and wardrobe. A vacant office shows a Novice with the generic statue name (inferred). The exported positions fit UnionCity_002. In the active UnionCity_001 hall the server preserves the arrangement beside the entry on walkable ground (inferred).
+
 ## Tests
 
 Bot integration tests use isolated temporary SQLite databases and dynamically selected ports. `GuildTests` exercises three players, mixed application results, an offline applicant, invitation token ownership/replay, leadership transfer, leave/dissolution, chat access, actual client resync/recruit/permission payloads, position limits, officer/offline kick, notice updates, paid rename, persisted building contribution/timers, and the black market, pre-create helper, recruitment and dissolved-seller paths. Its rename-race regression holds `StateLock` and schedules rename then dissolution on `GameLoop`, proving that the resumed operation cannot debit or resurrect the deleted guild. `GuildProfileTests` exercises two players through joining, public-profile lookup, disconnect, reconnect and departure.

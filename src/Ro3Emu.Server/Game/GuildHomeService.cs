@@ -1,6 +1,7 @@
 using Romsg;
 using Ro3Emu.Server.Accounts;
 using Ro3Emu.Server.Data;
+using Ro3Emu.Server.Maps;
 
 namespace Ro3Emu.Server.Game;
 
@@ -12,7 +13,7 @@ namespace Ro3Emu.Server.Game;
 /// first entry and closes with its last member (inferred: the persisted scene id behaves the same for players).
 /// Guild events (Bonfire Party, later Dracula / Hunting Challenge / rally) attach to <see cref="RoomOf"/>.
 /// </summary>
-public sealed class GuildHomeService : IGameTicker
+public sealed partial class GuildHomeService : IGameTicker
 {
     public const uint EnterHome = 32256;
     public const long DefaultScene = 4000101;
@@ -35,15 +36,17 @@ public sealed class GuildHomeService : IGameTicker
     private readonly TimeProvider _time;
 
     public GuildHomeService(GameData data, GuildStore guilds, FunctionService functions, InstanceService instances,
-        SceneService scene, DungeonService dungeons, GameLoop loop, TimeProvider time)
+        SceneService scene, DungeonService dungeons, GameLoop loop, TimeProvider time, WorldData maps, RoleStore roles, GuildService guildService)
     {
         this._data = data; this._guilds = guilds; this._functions = functions; this._instances = instances;
         this._scene = scene; this._dungeons = dungeons; this._loop = loop; this._time = time;
-        Scene = data.Table("GuildSettingConfig").TryGetValue("GuildMap", out var row)
-            && row.TryGetProperty("_kValue", out var value) && GameData.Number(value) is { } map && map > 0
-            ? (long)map : DefaultScene;
-        // (inferred, spec §6.5) Exiting the home revives a dead member on return, as ordinary dungeon runs do.
+        Scene = SettingValue("GuildMap") is { } value && GameData.Number(value) is > 0 and var map ? (long)map : DefaultScene;
+        // (inferred, spec Ã‚Â§6.5) Exiting the home revives a dead member on return, as ordinary dungeon runs do.
         dungeons.RecoverDeadOnLeave = roomId => GuildOfRoom(roomId) != null;
+        _maps = maps;
+        _roles = roles;
+        scene.Loaded.Add(SendStatuesAsync);
+        guildService.RosterPublished = UpdateStatuesAsync;
     }
 
     /// <summary>GuildSettingConfig.GuildMap, 4000101 when the export lacks it.</summary>
@@ -110,7 +113,11 @@ public sealed class GuildHomeService : IGameTicker
         if (result != 0) return (result, null);
         if (RoomOf(guild) is { } room)
             return _instances.AddParticipant(room, s) ? (0, room) : (ErrorCodes.DungeonBusy, null);
-        if (_homes.TryGetValue(guild, out var closed)) _guildOfRoom.Remove(closed.Id);
+        if (_homes.TryGetValue(guild, out var closed))
+        {
+            _guildOfRoom.Remove(closed.Id);
+            _statueHolders.Remove(closed.Id);
+        }
         room = _instances.Create(Scene, [s]);
         _homes[guild] = room;
         _guildOfRoom[room.Id] = guild;
@@ -147,6 +154,7 @@ public sealed class GuildHomeService : IGameTicker
             {
                 _homes.Remove(guild);
                 _guildOfRoom.Remove(room.Id);
+                _statueHolders.Remove(room.Id);
                 continue;
             }
             foreach (var member in room.ActiveMembers)
