@@ -20,6 +20,11 @@ public sealed class GameData(IOptions<ServerOptions> options, ILogger<GameData> 
     // SkillTemplate by script show: a cast asks for its template on every hit moment and target (#484), and the lookup built
     // its table key and an enumerator each time. Templates never change once loaded.
     private readonly System.Collections.Concurrent.ConcurrentDictionary<long, JsonElement?> _skillTemplates = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> _derived = new();
+
+    /// <summary>A value computed from the tables once per host (the tables never change after loading), for readers on
+    /// hot paths that would otherwise parse the same rows on every call.</summary>
+    internal T Derived<T>(string key, Func<T> build) where T : class => (T)_derived.GetOrAdd(key, _ => build());
     private volatile Dictionary<long, string>? _texts;
     private volatile FrozenDictionary<string, Dictionary<string, JsonElement>>? _frozen;
 
@@ -99,7 +104,17 @@ public sealed class GameData(IOptions<ServerOptions> options, ILogger<GameData> 
     /// <summary>tools/ConfigExport writes this next to config/ for a complete client export.</summary>
     public const string ExportManifest = "export.json";
 
-    public JsonElement? Row(string table, long id) => Table(table).TryGetValue(id.ToString(), out var row) ? row : null;
+    public JsonElement? Row(string table, long id)
+    {
+        // The key is formatted on the stack and looked up as a span: id.ToString() was a string per row read, and rows are
+        // read thousands of times a second in combat. Same text as ToString() (current culture, as before).
+        var rows = Table(table);
+        Span<char> key = stackalloc char[24];
+        if (rows is Dictionary<string, JsonElement> dict && dict.TryGetAlternateLookup<ReadOnlySpan<char>>(out var lookup)
+            && id.TryFormat(key, out int written, default, System.Globalization.CultureInfo.CurrentCulture))
+            return lookup.TryGetValue(key[..written], out var hit) ? hit : null;
+        return rows.TryGetValue(id.ToString(), out var row) ? row : null;
+    }
 
     /// <summary>Localized text (Localization_en: id -> {_kDes}); config "names" are arrays of text ids.</summary>
     public string Text(long id)
